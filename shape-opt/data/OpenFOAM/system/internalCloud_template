@@ -1,0 +1,38 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     |
+    \\  /    A nd           | Web:      www.OpenFOAM.org
+     \\/     M anipulation  |
+-------------------------------------------------------------------------------
+Description
+    Writes out values of fields interpolated to a specified cloud of points.
+
+\*---------------------------------------------------------------------------*/
+
+fields (p U);
+points
+(
+POINTS
+);
+
+type            sets;
+libs            ("libsampling.so");
+
+interpolationScheme cellPoint;
+setFormat	raw;
+
+executeControl  writeTime;
+writeControl    writeTime;
+
+sets
+(
+    cloud
+    {
+        type    cloud;
+        axis    xyz;
+        points  $points;
+    }
+);
+
+// ************************************************************************* //
