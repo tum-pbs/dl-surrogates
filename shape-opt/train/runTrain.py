@@ -22,27 +22,23 @@ import utils
 ######## Settings ########
 
 # number of training iterations
-iterations = 100000
+iterations = 3.5e4
 # batch size
-batch_size = 10
+batch_size = 5 #10
 # learning rate, generator
 lrG = 0.0006
 # decay learning rate?
 decayLr = True
 # channel exponent to control network size
-expo = 5
+expo = 7 #5
 # data set config
 prop=None # by default, use all from "../data/train"
 #prop=[1000,0.75,0,0.25] # mix data from multiple directories
 # save txt files with per epoch loss?
 saveL1 = True
-# data directory
-#dataDir = '../data/train_sets/train_square/'
+saveModel = True
+n_save_model = 10
 ##########################
-
-# NT_DEBUG , remove
-# iterations = 5000
-
 
 prefix = ""
 if len(sys.argv)>1:
@@ -69,7 +65,14 @@ torch.cuda.manual_seed_all(seed)
 #torch.backends.cudnn.deterministic=True # warning, slower
 
 # create pytorch data object with dfp dataset
-data = dataset.TurbDataset(prop, shuffle=1)
+#data = dataset.TurbDataset(prop, shuffle=1)
+#data = dataset.TurbDataset(prop, dataDir="/home/liwei/Simulations/train_Method-I_new/train/", dataDirTest="/home/liwei/data/test/", shuffle=1)
+#data = dataset.TurbDataset(prop, dataDir="/home/liwei/Simulations/train_oldMethod-II_original_adding/train/", dataDirTest="/home/liwei/data/test/", shuffle=1)
+#data = dataset.TurbDataset(prop, dataDir="/home/liwei/Simulations/TrainData_Re1_Re10_Re40/data/train_original/", dataDirTest="/home/liwei/data/test/", shuffle=1)
+#data = dataset.TurbDataset(prop, dataDir="/home/liwei/Simulations/train_log_pc18/train/", dataDirTest="/home/liwei/data/test/", shuffle=1)
+data = dataset.TurbDataset(prop, dataDir="../../datasets/dataset-ranged-400/", dataDirTest="../../datasets/dataset-ranged-400/", shuffle=1)
+#data = dataset.TurbDataset(prop, dataDir="/home/liwei/Simulations/train_log_pc18_3000samples/train/", dataDirTest="/home/liwei/data/test/", shuffle=1)
+
 trainLoader = DataLoader(data, batch_size=batch_size, shuffle=True, drop_last=True)
 print("Training batches: {}".format(len(trainLoader)))
 dataValidation = dataset.ValiDataset(data)
@@ -175,6 +178,11 @@ for epoch in range(epochs):
             utils.resetLog(prefix + "L1val.txt")
         utils.log(prefix + "L1.txt"   , "{} ".format(L1_accum), False)
         utils.log(prefix + "L1val.txt", "{} ".format(L1val_accum), False)
+    
+    if saveModel:
+        if epoch % n_save_model == 0:
+            print("++++++++++ Save model... modelG... ++++++++++")
+            torch.save(netG.state_dict(), prefix + "modelG" )
 
 torch.save(netG.state_dict(), prefix + "modelG" )
 
