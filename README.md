@@ -34,7 +34,7 @@ The model file is obtained: "modelG" (Note: this is a large-scale NN with 309058
 ## Optimisation
 Go to folder "dl-surrogates/shape-opt/levelset/". 
 The model actuall works well for Reynolds number range from 1 to 40. Here, we only take the case of the minimal drag profile at Re=1 for example.
-In the file "Constants.py", we pointed the folder where the model file and pickle files are: 
+In the file "Constants.py", we specified the folder where the model file and pickle files are: 
 
 modelPath='../../models/dataset-ranged-400'
 
