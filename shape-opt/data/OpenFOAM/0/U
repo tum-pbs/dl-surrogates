@@ -16,32 +16,32 @@ FoamFile
 
 dimensions      [0 1 -1 0 0 0 0];
 
-internalField   uniform (0.01 0.0 0);
+internalField   uniform (0.06867164954657265 0 0);
 
 boundaryField
 {
     inlet
     {
         type            freestream;
-        freestreamValue uniform (0.01 0.0 0);
+        freestreamValue uniform (0.06867164954657265 0 0);
     }
 
     exit
     {
         type            freestream;
-        freestreamValue uniform (0.01 0.0 0);
+        freestreamValue uniform (0.06867164954657265 0 0);
     }
 
     top
     {
         type            freestream;
-        freestreamValue uniform (0.01 0.0 0);
+        freestreamValue uniform (0.06867164954657265 0 0);
     }
 
     bottom
     {
         type            freestream;
-        freestreamValue uniform (0.01 0.0 0);
+        freestreamValue uniform (0.06867164954657265 0 0);
     }
 
     aerofoil

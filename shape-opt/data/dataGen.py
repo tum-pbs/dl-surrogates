@@ -8,38 +8,19 @@
 
 import os, math, uuid, sys, random
 import numpy as np
-from scipy import spatial
-from skimage.util.shape import view_as_windows
-import matplotlib.pyplot as plt
-#from Helper import printTensorAsImage
-from scipy import interpolate
+import utils 
 
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), './../')))
+samples           = 2500           # no. of datasets to produce
+freestream_angle  = math.pi / 8.  # -angle ... angle
+freestream_length = 0.005 #10.           # len * (1. ... factor)
+freestream_length_factor = 85.    # length factor
 
-from data import utils
+airfoil_database  = "../../DatFilesCollected/convertRotate/" #"./airfoil_database/"
+output_dir        = "./train/"
 
-class MODE:
-    DATAGEN = 1
-    CUSTOM  = 2
-
-mode              = MODE.CUSTOM
-samples           = 200           # no. of datasets to produce
-resolution        = 128           # solution resolution
-oversamplingRate  = 1             # oversampling rate (powers of two)
-airfoil_database  = "./database/square_airfoil_database/"
-real_airfoil_db   = "./database/airfoil_database/"
-test_airfoil_db   = "./database/test/"
-output_dir        = "./train_sets/train_square/"
-real_airfoil_out  = "./train_sets/train_set/"
-randomVelocity    = False
-
-if randomVelocity:
-    freestream_angle  = math.pi / 8.  # -angle ... angle
-    freestream_length = 10.           # len * (1. ... factor)
-    freestream_length_factor = 10.    # length factor
-else:
-    freestream_length = 0.01
-    freestream_angle  = math.pi / 16 * 7
+seed = random.randint(0, 2**32 - 1)
+np.random.seed(seed)
+print("Seed: {}".format(seed))
 
 def genMesh(airfoilFile):
     utils.makeDirs( ["./constant/polyMesh", "./constant/polyMesh/sets"] )
@@ -52,10 +33,8 @@ def genMesh(airfoilFile):
     output = ""
     pointIndex = 1000
     for n in range(ar.shape[0]):
-        #output += "Point({}) = {{ {}, {}, 0.00000000, 0.01}};\n".format(pointIndex, ar[n][0], ar[n][1])
-        output += "Point({}) = {{ {}, {}, 0.00000000, 0.005}};\n".format(pointIndex, ar[n][0], ar[n][1])
-        #output += "Point({}) = {{ {}, {}, 0.00000000, 0.0025}};\n".format(pointIndex, ar[n][0], ar[n][1])
-        #output += "Point({}) = {{ {}, {}, 0.00000000, 0.001}};\n".format(pointIndex, ar[n][0], ar[n][1])
+        output += "Point({}) = {{ {}, {}, 0.00000000, 0.01}};\n".format(pointIndex, ar[n][0], ar[n][1])
+        #output += "Point({}) = {{ {}, {}, 0.00000000, 0.005}};\n".format(pointIndex, ar[n][0], ar[n][1])
         pointIndex += 1
 
     with open("airfoil_template.geo", "rt") as inFile:
@@ -93,26 +72,8 @@ def genMesh(airfoilFile):
 
     return(0)
 
-def genPointCloud(res, oversamplingRate):
-    _res = res*oversamplingRate
-    output = ""
-    for y in range(_res):
-        for x in range(_res):
-            #xf = (x / _res - 0.5) * 2
-            #yf = (y / _res - 0.5) * 2
-            xf = (x / (_res-1) - 0.5) * 2
-            yf = (y / (_res-1) - 0.5) * 2
-            #output += "({} {} 0.5)\n".format(xf, yf)
-            output += "({} {} 0.05)\n".format(xf, yf)
-            
-    with open("system/internalCloud_template", "rt") as inFile:
-        with open("system/internalCloud", "wt") as outFile:
-            for line in inFile:
-                line = line.replace("POINTS", "{}".format(output))
-                outFile.write(line)
-    
+#def runSim(freestreamX, freestreamY):
 def runSim(freestreamX, freestreamY, user_viscosity=1e-5, res=128, oversamplingRate=1):
-    genPointCloud(res, oversamplingRate)
     with open("U_template", "rt") as inFile:
         with open("0/U", "wt") as outFile:
             for line in inFile:
@@ -120,6 +81,7 @@ def runSim(freestreamX, freestreamY, user_viscosity=1e-5, res=128, oversamplingR
                 line = line.replace("VEL_Y", "{}".format(freestreamY))
                 outFile.write(line)
 
+    #os.system("./Allclean && simpleFoam > foam.log")
     with open("transportProperties_template", "rt") as inFile:
         with open("constant/transportProperties", "wt") as outFile:
             for line in inFile:
@@ -133,25 +95,7 @@ def runSim(freestreamX, freestreamY, user_viscosity=1e-5, res=128, oversamplingR
     os.system("reconstructPar -time 6000 > 3_reconstructor.log")
 
 
-def downsample(input, downsampleRate):
-    _dr = downsampleRate
-    output = []
-    # Channel number two contains binary mask where inside is specified with 1 whereas outside with 0
-    blocks_denum          = np.sum(view_as_windows(input[2], (_dr, _dr), step=_dr ), axis=(2,3))
-    modified_blocks_denum = np.where(blocks_denum == 0, (_dr*_dr), blocks_denum)
-
-    for i in range(input.shape[0]):
-        blocks = view_as_windows(input[i], (_dr, _dr), step=_dr )
-        output.append( np.divide( np.sum(blocks, axis=(2,3)) , modified_blocks_denum) )
-
-    return np.asarray(output)
-
-def processResult(freestreamX, 
-                  freestreamY, 
-                  pfile='OpenFOAM/postProcessing/internalCloud/6000/cloud_p.xy', 
-                  ufile='OpenFOAM/postProcessing/internalCloud/6000/cloud_U.xy', 
-                  res=128, 
-                  oversamplingRate=1):
+def outputProcessing(basename, freestreamX, freestreamY, dataDir=output_dir, pfile='OpenFOAM/postProcessing/internalCloud/6000/cloud_p.xy', ufile='OpenFOAM/postProcessing/internalCloud/6000/cloud_U.xy', res=128, imageIndex=0): 
     # output layout channels:
     # [0] freestream field X + boundary
     # [1] freestream field Y + boundary
@@ -159,18 +103,17 @@ def processResult(freestreamX,
     # [3] pressure output
     # [4] velocity X output
     # [5] velocity Y output
-    _res     = res*oversamplingRate
-    npOutput = np.zeros((6, _res, _res))
+    npOutput = np.zeros((6, res, res))
 
     ar = np.loadtxt(pfile)
     curIndex = 0
 
-    for y in range(_res):
-        for x in range(_res):
-            #xf = (x / _res - 0.5) * 2
-            #yf = (y / _res - 0.5) * 2
-            xf = (x / (_res-1) - 0.5) * 2
-            yf = (y / (_res-1) - 0.5) * 2
+    for y in range(res):
+        for x in range(res):
+            #xf = (x / res - 0.5) * 2 #+ 0.5
+            #yf = (y / res - 0.5) * 2
+            xf = (x / (res-1) - 0.5) * 2
+            yf = (y / (res-1) - 0.5) * 2
             if abs(ar[curIndex][0] - xf)<1e-4 and abs(ar[curIndex][1] - yf)<1e-4:
                 npOutput[3][x][y] = ar[curIndex][3]
                 curIndex += 1
@@ -185,12 +128,12 @@ def processResult(freestreamX,
     ar = np.loadtxt(ufile)
     curIndex = 0
 
-    for y in range(_res):
-        for x in range(_res):
-            #xf = (x / _res - 0.5) * 2
-            #yf = (y / _res - 0.5) * 2
-            xf = (x / (_res-1) - 0.5) * 2
-            yf = (y / (_res-1) - 0.5) * 2
+    for y in range(res):
+        for x in range(res):
+            #xf = (x / res - 0.5) * 2 #+ 0.5
+            #yf = (y / res - 0.5) * 2
+            xf = (x / (res-1) - 0.5) * 2
+            yf = (y / (res-1) - 0.5) * 2
             if abs(ar[curIndex][0] - xf)<1e-4 and abs(ar[curIndex][1] - yf)<1e-4:
                 npOutput[4][x][y] = ar[curIndex][3]
                 npOutput[5][x][y] = ar[curIndex][4]
@@ -198,102 +141,6 @@ def processResult(freestreamX,
             else:
                 npOutput[4][x][y] = 0
                 npOutput[5][x][y] = 0
-                
-    return downsample(npOutput, oversamplingRate)
-
-def interpolateMinorDiff(source, target, interpolationPoints, iteration=1):
-    for _ in range(iteration):
-        for ind in interpolationPoints:
-            neighbors  = source[ind[0]-1:ind[0]+2,ind[1]-1:ind[1]+2]
-            numOfInterpolant = np.argwhere(neighbors != 0).shape[0]
-            if numOfInterpolant > 0:
-                target[tuple(ind)] = np.sum(neighbors)/numOfInterpolant
-
-def correctMinorDiff(binaryMask, npOutput, interpolateInterior=False, numOfIter=1):
-    binaryMask = np.flipud(binaryMask).transpose() # convert to openfoam domain
-    # Get Open Mask From Open Foam and Invert
-    openFoamMask = np.where(npOutput[2]==0, 1, 0)
-    # Get pixels where corrections will be made
-    diff = binaryMask - openFoamMask if not interpolateInterior else -1*openFoamMask
-
-    pointsToAssignZero  = np.argwhere(diff > 0)
-    pointsToInterpolate = np.argwhere(diff < 0)
-    npOutputCopy        = np.copy(npOutput) if not interpolateInterior else npOutput
-
-    for chn in range(npOutputCopy.shape[0]):
-        for ind in pointsToAssignZero:
-            npOutputCopy[chn][tuple(ind)] = 0
-
-        interpolateMinorDiff(npOutput[chn], npOutputCopy[chn], pointsToInterpolate, numOfIter)
-
-    return npOutputCopy
-
-def correctBinaryMask(npArray):
-    npCopy = np.copy(npArray)
-    npCopy[2] = np.where(npArray[2]==0, 1, 0)
-    return npCopy
-
-
-#def interpolateInside(data, channels, method, xx, yy):
-def interpolateInsideReverse(data, channels, method):
-    dataCopy = np.copy(data)
-    #import pdb; pdb.set_trace()
-
-    binaryMask =  dataCopy[2]
-    dataCopy   = np.copy(-dataCopy)
-    for chn in channels: # [3,4,5]
-
-        #dataCopy[chn][np.where(dataCopy[chn]==0)] = np.nan
-        dataCopy[chn][np.where(binaryMask==1)] = np.nan
-        
-        x = np.arange(0, dataCopy[chn].shape[1])
-        y = np.arange(0, dataCopy[chn].shape[0])
-        array = np.ma.masked_invalid(dataCopy[chn])
-        xx, yy = np.meshgrid(x, y)
-        x1 = xx[~array.mask]
-        y1 = yy[~array.mask]
-        newarr = array[~array.mask]
-
-        dataCopy[chn]= interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method=method)
-    
-    return data*2 + dataCopy
-
-def interpolateInside(data, channels, method):
-    dataCopy = np.copy(data)
-    #import pdb; pdb.set_trace()
-
-    binaryMask = dataCopy[2]
-    for chn in channels: # [3,4,5]
-
-        #dataCopy[chn][np.where(dataCopy[chn]==0)] = np.nan
-        dataCopy[chn][np.where(binaryMask==1)] = np.nan
-        
-        x = np.arange(0, dataCopy[chn].shape[1])
-        y = np.arange(0, dataCopy[chn].shape[0])
-        array = np.ma.masked_invalid(dataCopy[chn])
-        xx, yy = np.meshgrid(x, y)
-        x1 = xx[~array.mask]
-        y1 = yy[~array.mask]
-        newarr = array[~array.mask]
-
-        dataCopy[chn]= interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method=method)
-    
-    return dataCopy
-
-def outputProcessing(basename, 
-                     freestreamX, 
-                     freestreamY,
-                     binaryMask=None,
-                     dataDir=output_dir, 
-                     pfile='OpenFOAM/postProcessing/internalCloud/6000/cloud_p.xy', 
-                     ufile='OpenFOAM/postProcessing/internalCloud/6000/cloud_U.xy', 
-                     res=128,
-                     oversamplingRate=1, 
-                     imageIndex=0): 
-    utils.makeDirs(["./data_pictures", output_dir])
-    npOutput = processResult(freestreamX, freestreamY, pfile=pfile, ufile=ufile, res=res, oversamplingRate=oversamplingRate)
-
-    ##npOutput = interpolateInside(npOutput, [3,4,5])
 
     utils.saveAsImage('data_pictures/pressure_%04d.png'%(imageIndex), npOutput[3])
     utils.saveAsImage('data_pictures/velX_%04d.png'  %(imageIndex), npOutput[4])
@@ -302,112 +149,61 @@ def outputProcessing(basename,
     utils.saveAsImage('data_pictures/inputY_%04d.png'%(imageIndex), npOutput[1])
 
     #fileName = dataDir + str(uuid.uuid4()) # randomized name
-    fileName = dataDir + "%s_%d_%d" % (basename, int(freestreamX*100), int(freestreamY*100) )
+    fileName = dataDir + "%s_%d_%d" % (basename, int(freestreamX*100000), int(freestreamY*100000) )
     print("\tsaving in " + fileName + ".npz")
     np.savez_compressed(fileName, a=npOutput)
 
-    if binaryMask is not None:
-        return correctBinaryMask(correctMinorDiff(binaryMask, npOutput))
-    return correctBinaryMask(npOutput)
 
-def dataGenMode():
-    seed = random.randint(0, 2**32 - 1)
-    np.random.seed(seed)
-    print("Seed: {}".format(seed))
+
+files = os.listdir(airfoil_database)
+files.sort()
+if len(files)==0:
+	print("error - no airfoils found in %s" % airfoil_database)
+	exit(1)
+
+utils.makeDirs( ["./data_pictures", "./train", "./OpenFOAM/constant/polyMesh/sets", "./OpenFOAM/constant/polyMesh"] )
+
+
+# main
+for n in range(samples):
+    print("Run {}:".format(n))
+
+    fileNumber = np.random.randint(0, len(files))
+    basename = os.path.splitext( os.path.basename(files[fileNumber]) )[0]
+    print("\tusing {}".format(files[fileNumber]))
+
+    #length = freestream_length * np.random.uniform(1.,freestream_length_factor) 
+    #angle  = 0 #np.random.uniform(-freestream_angle, freestream_angle) 
+
+
+    length = np.random.uniform(-0.309, 1.6285)
+    angle  = 0 #np.random.uniform(-freestream_angle, freestream_angle) 
     
-    files = os.listdir(airfoil_database)
-    files.sort()
-    if len(files)==0:
-        print("error - no airfoils found in %s" % airfoil_database)
-        exit(1)
+    
+    
+    viscosity = 0.0078848 #0.0019712
+    reynolds= np.power(10,length)
 
-    # main
-    for n in range(samples):
-        print("Run {}:".format(n))
+    # reynolds = fsX*0.39424*2/viscosity 
 
-        fileNumber = np.random.randint(0, len(files))
-        basename = os.path.splitext( os.path.basename(files[fileNumber]) )[0]
-        print("\tusing {}".format(files[fileNumber]))
-        
-        if randomVelocity:
-            length = freestream_length * np.random.uniform(1.,freestream_length_factor) 
-            angle  = np.random.uniform(-freestream_angle, freestream_angle) 
-        else:
-            length  = freestream_length
-            angle   = freestream_angle
-        
-        fsX =  math.sin(angle) * length
-        fsY = -math.cos(angle) * length 
+    fsX =  reynolds * viscosity / 0.39424 / 2
+    fsY =  0
 
-        print("\tUsing len %5.3f angle %+5.3f " %( length,angle )  )
-        print("\tResulting freestream vel x,y: {},{}".format(fsX,fsY))
+    #print("\tUsing len %5.3f angle %+5.3f " %( length,angle )  )
+    print("\tReynolds # {}".format(reynolds))
+    print("\tResulting freestream vel x,y: {},{}".format(fsX,fsY))
 
-        os.chdir("./OpenFOAM/")
-        if genMesh("../" + airfoil_database + files[fileNumber]) != 0:
-            print("\tmesh generation failed, aborting");
-            os.chdir("..")
-            continue
-        
-        runSim(fsX, fsY, resolution, oversamplingRate)
-        os.chdir("..")
-
-        outputProcessing(basename, fsX, fsY, res=resolution, oversamplingRate=oversamplingRate ,imageIndex=n)
-        print("\tdone")
-
-def customMode(): 
-    if randomVelocity:
-        length = freestream_length * np.random.uniform(1.,freestream_length_factor) 
-        angle  = np.random.uniform(-freestream_angle, freestream_angle) 
-    else:
-        length  = freestream_length
-        angle   = freestream_angle
-
-    fsX =  math.sin(angle) * length
-    fsY = -math.cos(angle) * length 
-    basename = "Trial"
-    filename = "SQ_7.dat"
     os.chdir("./OpenFOAM/")
-    print("Generating Mesh")
-    if genMesh("../" + airfoil_database + filename) != 0:
-        print("\tmesh generation failed, aborting")
+    if genMesh("../" + airfoil_database + files[fileNumber]) != 0:
+        print("\tmesh generation failed, aborting");
         os.chdir("..")
-        return
+        continue
 
-    print("Running Simulation")    
-    runSim(fsX, fsY, resolution, oversamplingRate)
-    print("|")
-    print("--->Done!")
+    #viscosity = 0.0078848 #0.0019712
+    #reynolds = fsX*0.39424*2/viscosity 
+    runSim(fsX, fsY, viscosity)
     os.chdir("..")
 
-    print("Postprocessing is started...")
-    outputProcessing(basename, fsX, fsY, res=resolution, oversamplingRate=oversamplingRate ,imageIndex=1)
-    print("|")
-    print("--->Done!")
-
-
-def main():
-    if mode == MODE.DATAGEN:
-        dataGenMode()
-    elif mode == MODE.CUSTOM:
-        customMode()
-
-if __name__=='__main__':
-    main()
-
-'''
-def printTensorAsImage(array, name, display=True):
-    import matplotlib.pyplot as pyplt
-    pyplt.imshow(array)
-    pyplt.savefig(name)
-    if display:
-        pyplt.show()
-
-
-binaryMask   = np.load('1_GROUND_TRUTH.npz')['a']
-npResults    = np.load('2_OF_SOLUTION.npz')['a']
-#printTensorAsImage(np.flipud(npResults[3].transpose()), "02_CorrectedBinary")
-
-npResults = correctMinorDiff(binaryMask, npResults)
-printTensorAsImage(binaryMask, "01_GroundTruth")
-printTensorAsImage(np.flipud(npResults[3].transpose()), "03_CorrectedPressure")
-'''
+    outputProcessing(basename, fsX, fsY, imageIndex=n)
+    #print("\tdone Reynolds # {}".format(reynolds))
+    print("done")

@@ -59,11 +59,10 @@ solvers
 
 SIMPLE
 {
-    //nNonOrthogonalCorrectors 0;
-    nNonOrthogonalCorrectors 3;
+    nNonOrthogonalCorrectors 0;
     pRefCell        0;
     pRefValue       0;
-    //consistent      yes; // Liwei: this is the switch for SIMPLEC
+
     residualControl
     {
         p               1e-22;
