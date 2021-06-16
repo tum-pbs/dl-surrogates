@@ -19,6 +19,8 @@ tar -xjf dataset-ranged-400.tar.bz2
 ```
 Then flow samples are then in "dl-surrogates/datasets/dataset-ranged-400". (File format: *.npz)
 
+*(We will share the dataset-8640 soon on https://dataserv.ub.tum.de.)*
+
 ## Train the deep-learning surrogate model
 Go to folder "dl-surrogates/shape-opt/train/". Run:
 ```
@@ -53,3 +55,6 @@ After 200 iterations, we will see the geometry files have been generated (i.e. "
 Level set function "phi" is saved in the file "phi.pt.saved". Rename it as "phi.pt" if one wants to continue running from it. The flow field (i.e. velocity-X) with streamlines can be plot:
 
 <img src="figures/Streamlines.png" alt="drawing" style="height:300px;"/>
+
+## Bezier-curve-based optimisation
+*The tutorial and code will come up soon*
