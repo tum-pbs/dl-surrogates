@@ -19,7 +19,7 @@ tar -xjf dataset-ranged-400.tar.bz2
 ```
 Then flow samples are then in "dl-surrogates/datasets/dataset-ranged-400". (File format: *.npz)
 
-*(We will share the dataset-8640 soon on https://dataserv.ub.tum.de.)*
+*(The dataset-8640 can be downloaded from: https://dataserv.ub.tum.de/index.php/s/m1616559)*
 
 ## Train the deep-learning surrogate model
 Go to folder "dl-surrogates/shape-opt/train/". Run:
