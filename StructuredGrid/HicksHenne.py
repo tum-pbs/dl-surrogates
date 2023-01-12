@@ -635,7 +635,7 @@ if True:
             ax.plot(xs_pred, ys_pred,"g-", lw=1.5)
             #ax.plot(xs_initial, ys_initial, color="pink", lw=0.2)
             ax.set_aspect('equal')
-            fig.savefig('./hickshenne/airfoil_'+str(ifile)+'.png')
+            fig.savefig('./airfoil_'+str(ifile)+'.png')
             #airfoil_coordinates_output = np.stack((x_surface, y_surface),axis=-1)
             #np.savez_compressed("./airfoils_npz/airfoil_"+file.split("_")[1]+".npz", a=airfoil_coordinates_output)
             plt.show()
@@ -692,7 +692,7 @@ if True:
         plt.xlim(xmin,xmax)
         plt.ylim(ymin,ymax)
         #plt.title(r'TFI: $t$=%1.2f [s]' %((ifile+1)*0.01))
-        plt.savefig('./hickshenne/tfi_'+str(ifile)+'.png')
+        plt.savefig('./tfi_'+str(ifile)+'.png')
 
         plt.show()
         plt.close()
